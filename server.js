@@ -6,7 +6,7 @@ const app = express();
 const server = http.createServer(app);
 
 // ⚠️ In production, replace "*" with your actual GitHub Pages URL,
-// e.g. "https://yourusername.github.io/wasd-multiplayer-client/"
+// e.g. "https://yourusername.github.io"
 const io = new Server(server, {
   cors: {
     origin: "*",
