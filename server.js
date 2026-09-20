@@ -173,18 +173,53 @@ function tick() {
     diff = Math.max(-TURN_RATE, Math.min(TURN_RATE, diff));
     player.angle += diff;
 
-    const newX = player.x + Math.cos(player.angle) * SPEED;
-    const newY = player.y + Math.sin(player.angle) * SPEED;
+    let newX = player.x + Math.cos(player.angle) * SPEED;
+    let newY = player.y + Math.sin(player.angle) * SPEED;
 
-    // Walls are deadly, like classic Snake
-    if (newX < 0 || newX > WORLD_WIDTH || newY < 0 || newY > WORLD_HEIGHT) {
-      killPlayer(player);
-      continue;
+    const hitLeft = newX < 0;
+    const hitRight = newX > WORLD_WIDTH;
+    const hitTop = newY < 0;
+    const hitBottom = newY > WORLD_HEIGHT;
+
+    if (hitLeft || hitRight || hitTop || hitBottom) {
+      // Redirect along the wall instead of stopping dead. There are two
+      // directions a snake could slide (e.g. up or down along a side
+      // wall) — pick whichever is closest to its current heading, so a
+      // glancing hit curves naturally and a dead-on hit still commits to
+      // one consistent turn instead of reversing or freezing.
+      let candidates;
+      const xBlocked = hitLeft || hitRight;
+      const yBlocked = hitTop || hitBottom;
+      if (xBlocked && yBlocked) {
+        candidates = [0, Math.PI, Math.PI / 2, -Math.PI / 2]; // corner: any wall-aligned heading
+      } else if (xBlocked) {
+        candidates = [Math.PI / 2, -Math.PI / 2]; // slide down or up
+      } else {
+        candidates = [0, Math.PI]; // slide right or left
+      }
+
+      let bestAngle = candidates[0];
+      let bestAlignment = -Infinity;
+      for (const candidate of candidates) {
+        const alignment = Math.cos(player.angle - candidate);
+        if (alignment > bestAlignment) {
+          bestAlignment = alignment;
+          bestAngle = candidate;
+        }
+      }
+
+      player.angle = bestAngle;
+      player.targetAngle = bestAngle; // don't instantly steer back into the wall
+
+      newX = player.x + Math.cos(player.angle) * SPEED;
+      newY = player.y + Math.sin(player.angle) * SPEED;
     }
 
-    player.x = newX;
-    player.y = newY;
-    player.trail.unshift({ x: newX, y: newY });
+    // Clamp as a final safety net (e.g. right at a corner)
+    player.x = Math.max(0, Math.min(WORLD_WIDTH, newX));
+    player.y = Math.max(0, Math.min(WORLD_HEIGHT, newY));
+
+    player.trail.unshift({ x: player.x, y: player.y });
     const desired = segmentsFor(player.score);
     if (player.trail.length > desired) {
       player.trail.length = desired;
@@ -194,7 +229,7 @@ function tick() {
   // 2. Food consumption
   for (const id of ids) {
     const player = players[id];
-    if (!player.alive) continue;
+    if (!player || !player.alive) continue;
     const r = radiusFor(player.score);
 
     for (let i = food.length - 1; i >= 0; i--) {
@@ -212,13 +247,13 @@ function tick() {
   const toKill = [];
   for (const idA of ids) {
     const a = players[idA];
-    if (!a.alive) continue;
+    if (!a || !a.alive) continue;
     const rA = radiusFor(a.score);
 
     for (const idB of ids) {
       if (idA === idB) continue;
       const b = players[idB];
-      if (!b.alive) continue;
+      if (!b || !b.alive) continue;
       const rB = radiusFor(b.score);
 
       for (const seg of b.trail) {
@@ -252,7 +287,13 @@ function tick() {
   io.emit("state", { players: playerState, food });
 }
 
-setInterval(tick, TICK_MS);
+setInterval(() => {
+  try {
+    tick();
+  } catch (err) {
+    console.error("Error in game tick (server stayed alive):", err);
+  }
+}, TICK_MS);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
