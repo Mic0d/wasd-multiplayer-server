@@ -9,7 +9,7 @@ const server = http.createServer(app);
 // e.g. "https://yourusername.github.io/wasd-multiplayer-client/"
 const io = new Server(server, {
   cors: {
-    origin: "https://mic0d.github.io/",
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });
