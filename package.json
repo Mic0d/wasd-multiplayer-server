@@ -1,0 +1,16 @@
+{
+  "name": "wasd-multiplayer-server",
+  "version": "1.0.0",
+  "description": "Simple Socket.IO server for a WASD multiplayer movement demo",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
